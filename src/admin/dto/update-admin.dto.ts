@@ -1,9 +1,11 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateAdminDto } from './create-admin.dto';
-import { IsBoolean, IsOptional } from 'class-validator';
+import { IsBoolean, IsEmail, IsOptional } from 'class-validator';
 
-export class UpdateAdminDto extends PartialType(CreateAdminDto) {
+export class UpdateAdminDto {
   @IsBoolean()
   @IsOptional()
-  is_active: false;
+  is_active?: false;
+
+  @IsEmail()
+  @IsOptional()
+  email?: string;
 }
