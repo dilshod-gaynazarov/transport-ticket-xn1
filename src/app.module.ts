@@ -10,6 +10,7 @@ import { MailModule } from './mail/mail.module';
 import { CacheInterceptor, CacheModule } from '@nestjs/cache-manager';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
+import { ImagesOfAdmin } from './admin/models/images-of-admin.model';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { JwtModule } from '@nestjs/jwt';
       logging: false,
       synchronize: true,
       autoLoadModels: true,
-      models: [Admin],
+      models: [Admin, ImagesOfAdmin],
     }),
     ServeStaticModule.forRoot({
       rootPath: resolve(__dirname, '..', '..', 'upload'),

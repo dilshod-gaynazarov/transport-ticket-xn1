@@ -25,11 +25,15 @@ import { ConfirmSignInAdminDto } from './dto/confirm-signin-admin.dto';
 import { TokenService } from 'src/utils/TokenService';
 import { Response } from 'express';
 import { StatusAdminDto } from './dto/status-admin.dto';
+import { ImagesOfAdmin } from './models/images-of-admin.model';
+import { Sequelize } from 'sequelize-typescript';
 
 @Injectable()
 export class AdminService implements OnModuleInit {
   constructor(
     @InjectModel(Admin) private adminModel: typeof Admin,
+    @InjectModel(ImagesOfAdmin) private imageModel: typeof ImagesOfAdmin,
+    private readonly sequelize: Sequelize,
     private readonly cryptoService: CryptoService,
     private readonly fileService: FileService,
     private readonly mailService: MailService,
@@ -59,28 +63,47 @@ export class AdminService implements OnModuleInit {
 
   async createAdmin(
     createAdminDto: CreateAdminDto,
-    file?: Express.Multer.File,
-  ): Promise<object> {
+    files?: Express.Multer.File[],
+  ) {
+    const transaction = await this.sequelize.transaction();
     try {
       const { email, password } = createAdminDto;
       const existsEmail = await this.adminModel.findOne({
         where: { email },
+        transaction,
       });
       if (existsEmail) {
         throw new ConflictException('Email address already exists');
       }
       const hashedPassword = await this.cryptoService.encrypt(password);
-      let image: undefined | string;
-      if (file) {
-        image = await this.fileService.createFile(file);
+      const admin = await this.adminModel.create(
+        {
+          email,
+          hashed_password: hashedPassword,
+        },
+        { transaction },
+      );
+      if (files && files.length > 0) {
+        const imagesUrl: string[] = [];
+        for (let file of files) {
+          imagesUrl.push(await this.fileService.createFile(file));
+        }
+        const images = imagesUrl.map((image: string) => {
+          return {
+            image_url: image,
+            admin_id: admin.dataValues.id,
+          };
+        });
+        await this.imageModel.bulkCreate(images, { transaction });
+        await transaction.commit();
+        const findAdmin = await this.adminModel.findOne({
+          where: { email },
+          include: { all: true },
+        });
+        return successRes(findAdmin, 201);
       }
-      const admin = await this.adminModel.create({
-        email,
-        hashed_password: hashedPassword,
-        image,
-      });
-      return successRes(admin, 201);
     } catch (error) {
+      await transaction.rollback();
       return handleError(error);
     }
   }
@@ -138,125 +161,125 @@ export class AdminService implements OnModuleInit {
     }
   }
 
-  async refreshTokenAdmin(refreshToken: string): Promise<object> {
-    const decodedToken =
-      await this.tokenService.verifyRefreshToken(refreshToken);
-    if (!decodedToken) {
-      throw new UnauthorizedException('Refresh token expired');
-    }
-    const admin = await this.findAdminById(decodedToken.id);
-    const payload = {
-      id: admin.id,
-      role: admin.role,
-      is_active: admin.is_active,
-    };
-    const accessToken = await this.tokenService.generateAccessToken(payload);
-    return successRes({ token: accessToken });
-  }
+  // async refreshTokenAdmin(refreshToken: string): Promise<object> {
+  //   const decodedToken =
+  //     await this.tokenService.verifyRefreshToken(refreshToken);
+  //   if (!decodedToken) {
+  //     throw new UnauthorizedException('Refresh token expired');
+  //   }
+  //   const admin = await this.findAdminById(decodedToken.id);
+  //   const payload = {
+  //     id: admin.id,
+  //     role: admin.role,
+  //     is_active: admin.is_active,
+  //   };
+  //   const accessToken = await this.tokenService.generateAccessToken(payload);
+  //   return successRes({ token: accessToken });
+  // }
 
-  async signOutAdmin(refreshToken: string, res: Response): Promise<object> {
-    try {
-      const decodedToken =
-        await this.tokenService.verifyRefreshToken(refreshToken);
-      if (!decodedToken) {
-        throw new UnauthorizedException('Refresh token expired');
-      }
-      await this.findAdminById(decodedToken.id);
-      res.clearCookie('refreshTokenAdmin');
-      return successRes({ message: 'Admin signed out successfully' });
-    } catch (error) {
-      return handleError(error);
-    }
-  }
+  // async signOutAdmin(refreshToken: string, res: Response): Promise<object> {
+  //   try {
+  //     const decodedToken =
+  //       await this.tokenService.verifyRefreshToken(refreshToken);
+  //     if (!decodedToken) {
+  //       throw new UnauthorizedException('Refresh token expired');
+  //     }
+  //     await this.findAdminById(decodedToken.id);
+  //     res.clearCookie('refreshTokenAdmin');
+  //     return successRes({ message: 'Admin signed out successfully' });
+  //   } catch (error) {
+  //     return handleError(error);
+  //   }
+  // }
 
-  async getAllAdmins(): Promise<object> {
-    try {
-      const admins = await this.adminModel.findAll();
-      return successRes(admins);
-    } catch (error) {
-      return handleError(error);
-    }
-  }
+  // async getAllAdmins(): Promise<object> {
+  //   try {
+  //     const admins = await this.adminModel.findAll();
+  //     return successRes(admins);
+  //   } catch (error) {
+  //     return handleError(error);
+  //   }
+  // }
 
-  async getAdminById(id: number): Promise<object> {
-    try {
-      const admin = await this.findAdminById(id);
-      return successRes(admin);
-    } catch (error) {
-      return handleError(error);
-    }
-  }
+  // async getAdminById(id: number): Promise<object> {
+  //   try {
+  //     const admin = await this.findAdminById(id);
+  //     return successRes(admin);
+  //   } catch (error) {
+  //     return handleError(error);
+  //   }
+  // }
 
-  async updateAdmin(
-    id: number,
-    updateAdminDto: UpdateAdminDto,
-    file?: Express.Multer.File,
-  ): Promise<object> {
-    try {
-      const admin = await this.findAdminById(id);
-      let image = admin.image;
-      if (file) {
-        if (image && (await this.fileService.existFile(image))) {
-          await this.fileService.deleteFile(image);
-        }
-        image = await this.fileService.createFile(file);
-      }
-      const { email } = updateAdminDto;
-      if (email) {
-        const existsEmail = await this.adminModel.findOne({ where: { email } });
-        if (id != existsEmail?.dataValues.id) {
-          throw new ConflictException('Email address already exists');
-        }
-      }
-      const updatedAdmin = await this.adminModel.update(
-        {
-          ...updateAdminDto,
-          image,
-        },
-        { where: { id }, returning: true },
-      );
-      return successRes(updatedAdmin[1][0]);
-    } catch (error) {
-      return handleError(error);
-    }
-  }
+  // async updateAdmin(
+  //   id: number,
+  //   updateAdminDto: UpdateAdminDto,
+  //   file?: Express.Multer.File,
+  // ): Promise<object> {
+  //   try {
+  //     const admin = await this.findAdminById(id);
+  //     let image = admin.image;
+  //     if (file) {
+  //       if (image && (await this.fileService.existFile(image))) {
+  //         await this.fileService.deleteFile(image);
+  //       }
+  //       image = await this.fileService.createFile(file);
+  //     }
+  //     const { email } = updateAdminDto;
+  //     if (email) {
+  //       const existsEmail = await this.adminModel.findOne({ where: { email } });
+  //       if (id != existsEmail?.dataValues.id) {
+  //         throw new ConflictException('Email address already exists');
+  //       }
+  //     }
+  //     const updatedAdmin = await this.adminModel.update(
+  //       {
+  //         ...updateAdminDto,
+  //         image,
+  //       },
+  //       { where: { id }, returning: true },
+  //     );
+  //     return successRes(updatedAdmin[1][0]);
+  //   } catch (error) {
+  //     return handleError(error);
+  //   }
+  // }
 
-  async activeDeactiveAdmin(
-    id: number,
-    statusDto: StatusAdminDto,
-  ): Promise<object> {
-    try {
-      await this.findAdminById(id);
-      const updatedAdmin = await this.adminModel.update(
-        {
-          is_active: statusDto.is_active,
-        },
-        { where: { id }, returning: true },
-      );
-      return successRes(updatedAdmin[1][0]);
-    } catch (error) {
-      return handleError(error);
-    }
-  }
+  // async activeDeactiveAdmin(
+  //   id: number,
+  //   statusDto: StatusAdminDto,
+  // ): Promise<object> {
+  //   try {
+  //     await this.findAdminById(id);
+  //     const updatedAdmin = await this.adminModel.update(
+  //       {
+  //         is_active: statusDto.is_active,
+  //       },
+  //       { where: { id }, returning: true },
+  //     );
+  //     return successRes(updatedAdmin[1][0]);
+  //   } catch (error) {
+  //     return handleError(error);
+  //   }
+  // }
 
-  async deleteAdmin(id: number): Promise<object> {
-    try {
-      const admin = await this.findAdminById(id);
-      if (admin.image && (await this.fileService.existFile(admin.image))) {
-        await this.fileService.deleteFile(admin.image);
-      }
-      await this.adminModel.destroy({ where: { id } });
-      return successRes({ message: 'Admin deleted successfully' });
-    } catch (error) {
-      return handleError(error);
-    }
-  }
+  // async deleteAdmin(id: number): Promise<object> {
+  //   try {
+  //     const admin = await this.findAdminById(id);
+  //     if (admin.image && (await this.fileService.existFile(admin.image))) {
+  //       await this.fileService.deleteFile(admin.image);
+  //     }
+  //     await this.adminModel.destroy({ where: { id } });
+  //     return successRes({ message: 'Admin deleted successfully' });
+  //   } catch (error) {
+  //     return handleError(error);
+  //   }
+  // }
 
-  async findAdminById(id: number): Promise<Admin> {
-    const admin = await this.adminModel.findByPk(id);
-    if (!admin) {
-      throw new NotFoundException(`Admin not found by ID ${id}`);
-    }
-    return admin.dataValues;
-  }
+  // async findAdminById(id: number): Promise<Admin> {
+  //   const admin = await this.adminModel.findByPk(id);
+  //   if (!admin) {
+  //     throw new NotFoundException(`Admin not found by ID ${id}`);
+  //   }
+  //   return admin.dataValues;
+  // }
 }

@@ -7,9 +7,14 @@ import { CryptoService } from 'src/utils/CyrptoService';
 import { FileModule } from 'src/file/file.module';
 import { MailModule } from 'src/mail/mail.module';
 import { TokenService } from 'src/utils/TokenService';
+import { ImagesOfAdmin } from './models/images-of-admin.model';
 
 @Module({
-  imports: [SequelizeModule.forFeature([Admin]), FileModule, MailModule],
+  imports: [
+    SequelizeModule.forFeature([Admin, ImagesOfAdmin]),
+    FileModule,
+    MailModule,
+  ],
   controllers: [AdminController],
   providers: [AdminService, CryptoService, TokenService],
 })

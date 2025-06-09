@@ -11,11 +11,12 @@ import {
   Res,
   UseGuards,
   ParseIntPipe,
+  UploadedFiles,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { UpdateAdminDto } from './dto/update-admin.dto';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ImageValiationPipe } from 'src/pipes/image-validation.pipe';
 import { CacheInterceptor } from '@nestjs/cache-manager';
 import { ConfirmSignInAdminDto } from './dto/confirm-signin-admin.dto';
@@ -35,11 +36,11 @@ export class AdminController {
 
   @UseGuards(AuthGuard, RolesGuard)
   @CheckRoles(AdminRoles.SUPERADMIN)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FilesInterceptor('files'))
   @Post()
   async createAdmin(
     @Body() createAdminDto: CreateAdminDto,
-    @UploadedFile(new ImageValiationPipe()) file?: Express.Multer.File,
+    @UploadedFiles(new ImageValiationPipe()) file?: Express.Multer.File[],
   ) {
     return this.adminService.createAdmin(createAdminDto, file);
   }
@@ -57,59 +58,59 @@ export class AdminController {
     return this.adminService.confirmSignInAdmin(confirmSignInAdminDto, res);
   }
 
-  @Post('token')
-  async refreshTokenAdmin(
-    @GetCookie('refreshTokenAdmin') refreshToken: string,
-  ) {
-    return this.adminService.refreshTokenAdmin(refreshToken);
-  }
+  // @Post('token')
+  // async refreshTokenAdmin(
+  //   @GetCookie('refreshTokenAdmin') refreshToken: string,
+  // ) {
+  //   return this.adminService.refreshTokenAdmin(refreshToken);
+  // }
 
-  @Post('signout')
-  async signOutAdmin(
-    @GetCookie('refreshTokenAdmin') refreshToken: string,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    return this.adminService.signOutAdmin(refreshToken, res);
-  }
+  // @Post('signout')
+  // async signOutAdmin(
+  //   @GetCookie('refreshTokenAdmin') refreshToken: string,
+  //   @Res({ passthrough: true }) res: Response,
+  // ) {
+  //   return this.adminService.signOutAdmin(refreshToken, res);
+  // }
 
-  @UseGuards(AuthGuard, RolesGuard)
-  @CheckRoles(AdminRoles.SUPERADMIN)
-  @Get()
-  async getAllAdmins() {
-    return this.adminService.getAllAdmins();
-  }
+  // @UseGuards(AuthGuard, RolesGuard)
+  // @CheckRoles(AdminRoles.SUPERADMIN)
+  // @Get()
+  // async getAllAdmins() {
+  //   return this.adminService.getAllAdmins();
+  // }
 
-  @UseGuards(AuthGuard, SelfGuard)
-  @Get(':id')
-  async getAdminById(@Param('id', ParseIntPipe) id: number) {
-    return this.adminService.getAdminById(id);
-  }
+  // @UseGuards(AuthGuard, SelfGuard)
+  // @Get(':id')
+  // async getAdminById(@Param('id', ParseIntPipe) id: number) {
+  //   return this.adminService.getAdminById(id);
+  // }
 
-  @UseGuards(AuthGuard, RolesGuard)
-  @CheckRoles(AdminRoles.SUPERADMIN)
-  @Patch('status/:id')
-  async activeDeactiveAdmin(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() statusDto: StatusAdminDto,
-  ) {
-    return this.adminService.activeDeactiveAdmin(id, statusDto);
-  }
+  // @UseGuards(AuthGuard, RolesGuard)
+  // @CheckRoles(AdminRoles.SUPERADMIN)
+  // @Patch('status/:id')
+  // async activeDeactiveAdmin(
+  //   @Param('id', ParseIntPipe) id: number,
+  //   @Body() statusDto: StatusAdminDto,
+  // ) {
+  //   return this.adminService.activeDeactiveAdmin(id, statusDto);
+  // }
 
-  @UseGuards(AuthGuard, SelfGuard)
-  @UseInterceptors(FileInterceptor('file'))
-  @Patch(':id')
-  async updateAdmin(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() updateAdminDto: UpdateAdminDto,
-    @UploadedFile(new ImageValiationPipe()) file?: Express.Multer.File,
-  ) {
-    return this.adminService.updateAdmin(id, updateAdminDto, file);
-  }
+  // @UseGuards(AuthGuard, SelfGuard)
+  // @UseInterceptors(FileInterceptor('file'))
+  // @Patch(':id')
+  // async updateAdmin(
+  //   @Param('id', ParseIntPipe) id: number,
+  //   @Body() updateAdminDto: UpdateAdminDto,
+  //   @UploadedFile(new ImageValiationPipe()) file?: Express.Multer.File,
+  // ) {
+  //   return this.adminService.updateAdmin(id, updateAdminDto, file);
+  // }
 
-  @UseGuards(AuthGuard, RolesGuard)
-  @CheckRoles(AdminRoles.SUPERADMIN)
-  @Delete(':id')
-  async deleteAdmin(@Param('id', ParseIntPipe) id: number) {
-    return this.adminService.deleteAdmin(id);
-  }
+  // @UseGuards(AuthGuard, RolesGuard)
+  // @CheckRoles(AdminRoles.SUPERADMIN)
+  // @Delete(':id')
+  // async deleteAdmin(@Param('id', ParseIntPipe) id: number) {
+  //   return this.adminService.deleteAdmin(id);
+  // }
 }

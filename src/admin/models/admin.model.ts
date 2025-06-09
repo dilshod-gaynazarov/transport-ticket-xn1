@@ -1,5 +1,6 @@
-import { Column, DataType, Model, Table } from 'sequelize-typescript';
+import { Column, DataType, HasMany, Model, Table } from 'sequelize-typescript';
 import { AdminRoles } from 'src/enums';
+import { ImagesOfAdmin } from './images-of-admin.model';
 
 @Table({ tableName: 'admins' })
 export class Admin extends Model {
@@ -30,8 +31,9 @@ export class Admin extends Model {
   })
   role: string;
 
-  @Column({
-    type: DataType.STRING,
+  @HasMany(() => ImagesOfAdmin, {
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
   })
-  image: string;
+  images: ImagesOfAdmin[];
 }
